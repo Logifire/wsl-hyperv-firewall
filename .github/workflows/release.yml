@@ -1,0 +1,34 @@
+name: Release Zip
+on:
+  push:
+    tags:
+      - '[0-9]*.[0-9]*'
+      - '[0-9]*.[0-9]*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build zip
+        run: zip wsl-hyperv-firewall.zip wsl-hyperv-firewall.bat wsl-hyperv-firewall.ps1
+      - name: Publish to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: wsl-hyperv-firewall.zip
+          name: "Release ${{ github.ref_name }}"
+          generate_release_notes: true
+          body: |
+            ## 📦 Download
+            Download `wsl-hyperv-firewall.zip` below — contains `wsl-hyperv-firewall.bat` and `wsl-hyperv-firewall.ps1`.
+
+            ### Install
+            1. Extract the zip
+            2. Right-click `wsl-hyperv-firewall.bat` → **Run as administrator**
+            3. `add 5173` (or your port)
+
+            See `README.md` for more examples.
