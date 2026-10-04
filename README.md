@@ -50,7 +50,7 @@ This repo is the fix if you googled:
 
 ### Is it called "Windows Firewall" or "Windows Defender Firewall"?
 
-Microsoft has renamed it several times: **Windows Firewall** → **Windows Defender Firewall** → **Windows Defender Firewall with Advanced Security** (`wf.msc`). In PowerShell the module is `NetSecurity`. In this repo it always refers to the built-in firewall in Windows 10/11 — and specifically its **Hyper-V extension** (`Get-NetFirewallHyperVRule` / `New-NetFirewallHyperVRule`), which is the only one that works for WSL2 and deliberately has **no GUI** in `wf.msc`.
+Microsoft has renamed it several times: **Windows Firewall** → **Windows Defender Firewall** → **Windows Defender Firewall with Advanced Security** (`wf.msc`). In PowerShell the module is `NetSecurity`. In this repo it always refers to the built-in firewall in Windows 11 — and specifically its **Hyper-V extension** (`Get-NetFirewallHyperVRule` / `New-NetFirewallHyperVRule`), which is the only one that works for WSL2 and deliberately has **no GUI** in `wf.msc`.
 
 ---
 
