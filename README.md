@@ -9,6 +9,8 @@
 .\wsl-hyperv-firewall.bat remove 5173
 ```
 
+![Data flow path for exposing a WSL2 server to a local network](docs/Data-flow-path-for-Exposing-a-WSL2-server-to-a-local-network.jpg)
+
 ---
 
 ## The Problem It Solves
