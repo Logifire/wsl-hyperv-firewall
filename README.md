@@ -41,7 +41,7 @@ This repo is the fix if you googled:
 
 | Command | What happens under the hood |
 |---|---|
-| `add <port> [TCP\|UDP]` | Resolves WSL's `VMCreatorId` via `Get-NetFirewallHyperVVMSetting` and creates a rule with `New-NetFirewallHyperVRule -Name WSL-HYPERV-<port>-<protocol> -Direction Inbound -Protocol <protocol> -LocalPorts <port>` (default `TCP`). Falls back to GUID `{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}` if WSL is not found. Idempotent — prints `Port <port>/<protocol> is already configured.` if the rule exists. |
+| `add <port> [TCP\|UDP]` | Resolves WSL's `VMCreatorId` (a unique GUID identifying the WSL Hyper-V engine, falling back to `{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}`) via `Get-NetFirewallHyperVVMSetting` and creates a rule with `New-NetFirewallHyperVRule -Name WSL-HYPERV-<port>-<protocol> -Direction Inbound -Protocol <protocol> -LocalPorts <port>` (default `TCP`). Idempotent — prints `Port <port>/<protocol> is already configured.` if the rule exists. |
 | `list` | Lists all rules named `WSL-HYPERV-*` via `Get-NetFirewallHyperVRule` |
 | `remove <port> [TCP\|UDP]` | Removes the rule via `Remove-NetFirewallHyperVRule` (default `TCP`) |
 
@@ -52,7 +52,7 @@ This repo is the fix if you googled:
 
 ### Is it called "Windows Firewall" or "Windows Defender Firewall"?
 
-Microsoft has renamed it several times: **Windows Firewall** → **Windows Defender Firewall** → **Windows Defender Firewall with Advanced Security** (`wf.msc`). In PowerShell the module is `NetSecurity`. In this repo it always refers to the built-in firewall in Windows 11 — and specifically its **Hyper-V extension** (`Get-NetFirewallHyperVRule` / `New-NetFirewallHyperVRule`), which is the only one that works for WSL2 and deliberately has **no GUI** in `wf.msc`.
+Microsoft has renamed it several times: **Windows Firewall** → **Windows Defender Firewall** → **Windows Defender Firewall with Advanced Security** (`wf.msc`, the MMC console snap-in). In PowerShell the module is `NetSecurity`. In this repo it always refers to the built-in firewall in Windows 11 — and specifically its **Hyper-V extension** (`Get-NetFirewallHyperVRule` / `New-NetFirewallHyperVRule`), which operates on the virtual switch level, is separate from classic rules, and deliberately has **no GUI** in `wf.msc`.
 
 ---
 
@@ -65,8 +65,8 @@ Microsoft has renamed it several times: **Windows Firewall** → **Windows Defen
 
 There is a good reason for keeping both:
 
-1.  **Bypasses `ExecutionPolicy`:** Many Windows machines block unsigned `.ps1` files (`Restricted` / `RemoteSigned`). The `.bat` invokes PowerShell with `-ExecutionPolicy Bypass`, so you don't have to run `Set-ExecutionPolicy` or remember the flag every time.
-2.  **Double-click and right-click > Run as administrator:** A `.ps1` cannot be elevated with a double-click the same way a `.bat` can. With the `.bat` you can right-click → *Run as administrator* → it prompts `Command >` (e.g. type `add 3000`) in interactive mode — without opening PowerShell manually. With arguments (`.\wsl-hyperv-firewall.bat add 3000`) it runs directly without prompting.
+1.  **Bypasses `ExecutionPolicy`:** Windows blocks unsigned `.ps1` scripts by default (`Restricted` / `RemoteSigned` ExecutionPolicy). The `.bat` invokes PowerShell with `-ExecutionPolicy Bypass`, so you don't have to run `Set-ExecutionPolicy` or remember the flag every time.
+2.  **Double-click and right-click > Run as administrator:** A `.ps1` cannot be elevated directly with UAC on double-click. With the `.bat` you can right-click → *Run as administrator* → it prompts `Command >` (e.g. type `add 3000`) in interactive mode — without opening PowerShell manually. With arguments (`.\wsl-hyperv-firewall.bat add 3000`) it runs directly without prompting.
 3.  **Path handling (`%~dp0`):** Ensures the `.ps1` is found regardless of where you invoke the `.bat` from (same directory as the script), and `%*` forwards all arguments 1:1.
 4.  **Best of both worlds:** Power users can call the `.ps1` directly (`powershell -ExecutionPolicy Bypass -File .\wsl-hyperv-firewall.ps1 add 5173`), while everyone else just uses the `.bat` — same functionality, less friction.
 
@@ -128,7 +128,7 @@ Ports must be `1-65535`, protocol `TCP` or `UDP` (case-insensitive, default `TCP
 
 ### 3. Don't forget to bind your dev server to `0.0.0.0`
 
-The firewall rule is only half the fix. Your server inside WSL must listen on all interfaces:
+The firewall rule is only half the fix. By default, most dev servers only listen on `localhost` (`127.0.0.1`), which only accepts internal connections from inside the same environment. Your server inside WSL must listen on `0.0.0.0` (all network interfaces) so external requests from LAN can reach it:
 
 ```bash
 # Vite / Vue / SvelteKit
@@ -171,9 +171,11 @@ Get-NetFirewallRule -DisplayName "WSL Hyper-V - Port 5173 (TCP)" -ErrorAction Si
 
 **I can't find the rule in `wf.msc` — did it fail?** No, that's expected. `wf.msc` never shows Hyper-V rules. That's exactly why this script exists — there is no GUI for `New-NetFirewallHyperVRule`. Verify with `.\wsl-hyperv-firewall.bat list` or `Get-NetFirewallHyperVRule` instead. If you open a port with `New-NetFirewallRule` / `wf.msc` / `netsh advfirewall`, it still won't work for WSL2.
 
-**Still not reachable from LAN?** Check in order: 1) Did you run as Administrator? 2) Is the server listening on `0.0.0.0` and not just `localhost`? (`ss -tulpn` inside WSL) 3) Is your router/AP blocking *client isolation*? 4) Do you have a third-party firewall/antivirus overriding Windows Firewall?
+**Still not reachable from LAN?** Check in order: 1) Did you run as Administrator? 2) Is the server listening on `0.0.0.0` and not just `localhost`? (`ss -tulpn` inside WSL) 3) Is your router/AP blocking *client isolation* (a Wi-Fi feature that prevents devices on the same Wi-Fi network from communicating with each other)? 4) Do you have a third-party firewall/antivirus overriding Windows Firewall?
 
 **Do I need to run `add` after every reboot?** No. `New-NetFirewallHyperVRule` is persistent — the rule survives reboots. Run `list` to verify.
+
+**What is `VMCreatorId` and does it work across multiple WSL2 distros?** Yes. All WSL2 distributions (Ubuntu, Debian, Alpine, etc.) share the same underlying lightweight Hyper-V VM engine and virtual network adapter. The `VMCreatorId` is the unique GUID for that shared WSL2 engine. Opening a port applies to all your WSL2 distros at once, while ensuring the rule only targets WSL and not other Hyper-V virtual machines on your PC (such as Windows Sandbox or full Hyper-V VMs).
 
 **TCP or UDP?** The script opens TCP inbound by default, which covers HTTP/HTTPS/WebSocket. For UDP (e.g. DNS, QUIC, game server) run `.\wsl-hyperv-firewall.bat add <port> UDP` — this creates a separate rule `WSL-HYPERV-<port>-UDP`. Same for removal: `remove <port> UDP`.
 
