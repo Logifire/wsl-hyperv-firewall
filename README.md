@@ -89,7 +89,7 @@ There is a good reason for keeping both:
 
 ### Requirements
 
-*   Windows 10 / 11 with WSL2
+*   Windows 11 with WSL2
 *   PowerShell 5.1+
 *   **Administrator privileges** (right-click → Run as administrator)
 
